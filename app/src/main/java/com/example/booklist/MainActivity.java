@@ -1,7 +1,10 @@
 package com.example.booklist;
 
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.recyclerview.widget.LinearLayoutManager;
+import androidx.recyclerview.widget.RecyclerView;
 
+import android.content.Intent;
 import android.os.AsyncTask;
 import android.os.Bundle;
 import android.util.Log;
@@ -22,6 +25,8 @@ import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.nio.charset.Charset;
+import java.util.ArrayList;
+import java.util.List;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -35,6 +40,9 @@ public class MainActivity extends AppCompatActivity {
 
     private TextView finalText;
 
+    private RecyclerView recyclerView;
+
+    private BookListAdapter bookListAdapter;
 
 
     @Override
@@ -44,12 +52,13 @@ public class MainActivity extends AppCompatActivity {
 
         final SearchView searchView = (SearchView) findViewById(R.id.searchView);
 
-        finalText = (TextView) findViewById(R.id.search_result_text_view);
 
         text = (TextView) findViewById(R.id.searching_text_view);
 
         progressBar = (ProgressBar) findViewById(R.id.progressBar);
         progressBar.setVisibility(View.INVISIBLE);
+
+        recyclerView = findViewById(R.id.recycler_view);
 
         searchView.setOnQueryTextListener(new SearchView.OnQueryTextListener() {
             @Override
@@ -67,9 +76,10 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 
+
     }
 
-    private class BookListAsyncTask extends AsyncTask<String,Void,String>{
+    private class BookListAsyncTask extends AsyncTask<String, Void, List<BookInfo>> {
 
         @Override
         protected void onPreExecute() {
@@ -79,23 +89,26 @@ public class MainActivity extends AppCompatActivity {
         }
 
         @Override
-        protected void onPostExecute(String s) {
+        protected void onPostExecute(List<BookInfo> bookList) {
 
-            text.setVisibility(View.GONE);
-            progressBar.setVisibility(View.GONE);
-            finalText.setText(s);
+            text.setVisibility(View.INVISIBLE);
+            progressBar.setVisibility(View.INVISIBLE);
+
+            bookListAdapter = new BookListAdapter(MainActivity.this, bookList);
+            recyclerView.setAdapter(bookListAdapter);
+            recyclerView.setLayoutManager(new LinearLayoutManager(MainActivity.this));
 
         }
 
 
         @Override
-        protected String doInBackground(String... strings) {
-            if(strings.length<1){
-                return "No query found to search";
+        protected List<BookInfo> doInBackground(String... strings) {
+            if (strings.length < 1) {
+                return null;
             }
 
             // create a string url by adding user search keyword to the api url
-            String urlCreate = urlAPI + strings[0];
+            String urlCreate = urlAPI + strings[0] + "&maxResults=6";
 
             // create a URL to make a connection to
             URL createdURL = createURL(urlCreate);
@@ -111,13 +124,13 @@ public class MainActivity extends AppCompatActivity {
 
     /**
      * Create  a URL from a string
-     * */
-    private URL createURL(String urlString){
+     */
+    private URL createURL(String urlString) {
         URL url = null;
-        try{
+        try {
             url = new URL(urlString);
-        } catch(MalformedURLException exception){
-            Log.e("MainActivity.java","Failed to create URL");
+        } catch (MalformedURLException exception) {
+            Log.e("MainActivity.java", "Failed to create URL");
         }
         return url;
     }
@@ -126,16 +139,16 @@ public class MainActivity extends AppCompatActivity {
     /**
      * Make a HTTP request and return the string from the request
      */
-    private String makeHTTPRequest(URL url){
+    private String makeHTTPRequest(URL url) {
         String jsonResponse = "";
 
-        if(url==null){
+        if (url == null) {
             return jsonResponse;
         }
 
         HttpURLConnection urlConnection = null;
         InputStream inputStream = null;
-        try{
+        try {
             urlConnection = (HttpURLConnection) url.openConnection();
             urlConnection.setRequestMethod("GET");
             urlConnection.setReadTimeout(10000);
@@ -143,21 +156,21 @@ public class MainActivity extends AppCompatActivity {
             urlConnection.connect();
 
             //if the url connection was successful then read the stream and pass the response
-            if(urlConnection.getResponseCode()==200){
+            if (urlConnection.getResponseCode() == 200) {
                 inputStream = urlConnection.getInputStream();
                 jsonResponse = readFromStream(inputStream);
             }
 
-        } catch(IOException exception){
-            Log.e("MainActivity.java","Failed to retrieve JSON results");
+        } catch (IOException exception) {
+            Log.e("MainActivity.java", "Failed to retrieve JSON results");
         } finally {
-            if(urlConnection!=null){
+            if (urlConnection != null) {
                 urlConnection.disconnect();
             }
-            if(inputStream!=null){
-                try{
+            if (inputStream != null) {
+                try {
                     inputStream.close();
-                } catch(IOException exception){
+                } catch (IOException exception) {
                     Log.e("MainActivity.java", "InputStream error" + exception);
                 }
             }
@@ -170,20 +183,20 @@ public class MainActivity extends AppCompatActivity {
     /**
      * Convert input stream to String which contains the JSON response from the server
      */
-    private String readFromStream(InputStream inputStream){
+    private String readFromStream(InputStream inputStream) {
         StringBuilder output = new StringBuilder();
-        if(inputStream!=null){
+        if (inputStream != null) {
             InputStreamReader inputStreamReader = new InputStreamReader(inputStream, Charset.forName("UTF-8"));
             BufferedReader bufferedReader = new BufferedReader(inputStreamReader);
 
-            try{
+            try {
                 String line = bufferedReader.readLine();
-                while(line!=null){
+                while (line != null) {
                     output.append(line);
                     line = bufferedReader.readLine();
                 }
-            } catch(IOException exception){
-                Log.e("MainActivity.java","Error reading from the input stream" + exception);
+            } catch (IOException exception) {
+                Log.e("MainActivity.java", "Error reading from the input stream" + exception);
             }
         }
 
@@ -193,44 +206,63 @@ public class MainActivity extends AppCompatActivity {
 
     /**
      * Parse the JSON string to get the book name and the author
-     * */
-    private String parseJSON(String jsonString){
+     */
+    private List<BookInfo> parseJSON(String jsonString) {
 
-        String finalResult = "";
+        List<BookInfo> bookInfo = new ArrayList<>();
 
-        if(jsonString!=null && jsonString.length()>0){
-            try{
+        if (jsonString != null && jsonString.length() > 0) {
+            try {
                 JSONObject rootObject = new JSONObject(jsonString);
 
                 //get the array of the information of the items containing the keyword phrase
                 JSONArray itemArray = rootObject.getJSONArray("items");
 
-                //get the first item from the array
-                JSONObject firstResult = itemArray.getJSONObject(0);
+                for (int i = 0; i < itemArray.length(); i++) {
+                    //get the  item from the array
+                    JSONObject currentItem = itemArray.getJSONObject(i);
 
-                //get the publishers and book name of the first index item
-                JSONObject firstItem = firstResult.getJSONObject("volumeInfo");
-                String bookName = firstItem.getString("title");
-                JSONArray authorsArray = firstItem.getJSONArray("authors");
-                String authors = "";
-                for(int i=0; i<authorsArray.length(); i++){
-                    if(i<authorsArray.length()-1){
-                        authors += authorsArray.get(i) + ", ";
-                    }
-                    else{
-                        authors += authorsArray.get(i);
+                    //get the author and book name of the current item
+                    JSONObject volumeInfo = currentItem.getJSONObject("volumeInfo");
+                    String bookName = volumeInfo.getString("title");
+                    JSONArray authorsArray = volumeInfo.optJSONArray("authors");
+                    String authors = "";
+                    if (authorsArray != null) {
+                        for (int j = 0; j < authorsArray.length(); j++) {
+                            if (j < authorsArray.length() - 1) {
+                                authors += authorsArray.get(j) + ", ";
+                            } else {
+                                authors += authorsArray.get(j);
+                            }
+
+                        }
                     }
 
+                    //get the publication name, published date and rating of the book
+                    String publication = volumeInfo.optString("publisher");
+                    String publishedDate = volumeInfo.optString("publishedDate").substring(0, 4);
+                    int pageCount = volumeInfo.optInt("pageCount");
+
+                    JSONObject imageObject = volumeInfo.optJSONObject("imageLinks");
+                    String imageURL = "";
+                    if (imageObject != null) {
+                        imageURL = imageObject.optString("smallThumbnail");
+                    } else {
+                        imageURL = getResources().getString(R.string.no_image_url);
+                    }
+                    float rating = (float) volumeInfo.optDouble("averageRating");
+
+                    //add the book to the list
+                    bookInfo.add(new BookInfo(bookName, authors, imageURL, rating, publication, publishedDate, pageCount));
                 }
 
-                finalResult = bookName + " by " + authors;
 
-            } catch(JSONException exception){
+            } catch (JSONException exception) {
                 Log.e("MainActivity.java", "Failed to parse JSON. \n" + exception);
             }
         }
 
-        return finalResult;
+        return bookInfo;
 
     }
 }

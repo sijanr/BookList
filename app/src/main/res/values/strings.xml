@@ -1,4 +1,5 @@
 <resources>
     <string name="app_name">BookList</string>
     <string name="search_hint_text">Enter the name of the book to search</string>
+    <string name="no_image_url">https://www.friendlyfoodqatar.com/mt-content/uploads/2017/04/no-image.jpg</string>
 </resources>
