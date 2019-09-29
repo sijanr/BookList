@@ -44,6 +44,8 @@ public class MainActivity extends AppCompatActivity {
 
     private BookListAdapter bookListAdapter;
 
+    private List<BookInfo> bookList;
+
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -51,6 +53,8 @@ public class MainActivity extends AppCompatActivity {
         setContentView(R.layout.activity_main);
 
         final SearchView searchView = (SearchView) findViewById(R.id.searchView);
+
+        bookList = new ArrayList<>();
 
 
         text = (TextView) findViewById(R.id.searching_text_view);
@@ -63,7 +67,13 @@ public class MainActivity extends AppCompatActivity {
         searchView.setOnQueryTextListener(new SearchView.OnQueryTextListener() {
             @Override
             public boolean onQueryTextSubmit(String s) {
+
                 searchParameter = searchView.getQuery().toString();
+
+                if(bookList.size()>0){
+                    bookList.clear();
+                    bookListAdapter.notifyDataSetChanged();
+                }
 
                 BookListAsyncTask bookListAsyncTask = new BookListAsyncTask();
                 bookListAsyncTask.execute(searchParameter);
@@ -89,11 +99,12 @@ public class MainActivity extends AppCompatActivity {
         }
 
         @Override
-        protected void onPostExecute(List<BookInfo> bookList) {
+        protected void onPostExecute(List<BookInfo> bookSearchList) {
 
             text.setVisibility(View.INVISIBLE);
             progressBar.setVisibility(View.INVISIBLE);
 
+            bookList.addAll(bookSearchList);
             bookListAdapter = new BookListAdapter(MainActivity.this, bookList);
             recyclerView.setAdapter(bookListAdapter);
             recyclerView.setLayoutManager(new LinearLayoutManager(MainActivity.this));
@@ -240,7 +251,10 @@ public class MainActivity extends AppCompatActivity {
 
                     //get the publication name, published date and rating of the book
                     String publication = volumeInfo.optString("publisher");
-                    String publishedDate = volumeInfo.optString("publishedDate").substring(0, 4);
+                    String publishedDate = volumeInfo.optString("publishedDate");
+                    if(!publishedDate.equals("")){
+                        publishedDate = publishedDate.substring(0,4);
+                    }
                     int pageCount = volumeInfo.optInt("pageCount");
 
                     JSONObject imageObject = volumeInfo.optJSONObject("imageLinks");
