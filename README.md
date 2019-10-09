@@ -7,6 +7,7 @@ It is an android application that performs a maximum search result of 10 books t
 * Android IDE
 * Java Development Kit
 * Android device or emulator
+* Internet Access
 
 ## Screenshots
 <img src="/screenshots/screenshot_1.png" height="400">&nbsp;&nbsp;&nbsp;&nbsp;<img src="/screenshots/screenshot_2.png" height="400">&nbsp;&nbsp;&nbsp;&nbsp;<img src="/screenshots/screenshot_3.png" height="400">
